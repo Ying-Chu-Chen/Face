@@ -10,8 +10,10 @@ class(train.data)
 
 # Read image
 
-Train_img.array1 <- array(0, dim = c(128, 128, 3, 2200))
-Train_img.array2 <- array(0, dim = c(128, 128, 3, 2200))
+img_size <- 64
+
+Train_img.array1 <- array(0, dim = c(img_size, img_size, 3, 2200))
+Train_img.array2 <- array(0, dim = c(img_size, img_size, 3, 2200))
 
 # person1 img in Train_img.array1
 
@@ -30,7 +32,7 @@ for (i in 1:2200) {
   }
   
   #Train_img.array1[,,,i] <- img
-  Train_img.array1[,,,i] <- resizeImage(img, 128, 128, method = 'bilinear')
+  Train_img.array1[,,,i] <- resizeImage(img, img_size, img_size, method = 'bilinear')
 }
 
 
@@ -51,7 +53,7 @@ for (i in 1:2200) {
   }
   
   #Train_img.array2[,,,i] <- img
-  Train_img.array2[,,,i] <- resizeImage(img, 128, 128, method = 'bilinear')
+  Train_img.array2[,,,i] <- resizeImage(img, img_size, img_size, method = 'bilinear')
 }
 
 
@@ -79,4 +81,5 @@ close(pb)
 
 names(train_list) <- c('person_1', 'person_2')
 
-save(train_list, file = "data/train_list_128.RData")
+save(train_list, file = paste0('data/train_list_', img_size, '.RData'))
+
