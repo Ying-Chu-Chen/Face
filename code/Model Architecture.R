@@ -130,19 +130,8 @@ feature_symbol <- function(name = '') {
   
   bn1_p1 <- mx.symbol.BatchNorm(data = elemwise_add_plus7_p1, fix_gamma = FALSE, eps = "2e-05", name = 'bn1_p1')
   relu1_p1 <- mx.symbol.Activation(data = bn1_p1, act_type = "relu", name = 'relu1_p1')
-  high_feature_1 <- mx.symbol.Convolution(data = relu1_p1, no_bias = TRUE, name = 'high_feature_1',
+  high_feature <- mx.symbol.Convolution(data = relu1_p1, no_bias = TRUE, name = 'high_feature',
                                           kernel = c(8, 8), stride = c(1, 1), num_filter = 512)
   
-  return(high_feature_1)
+  return(high_feature)
 }
-
-#########################
-
-#person_2 <- person_2_symbol(name = '2')
-
-# high_feature_1 <- mx.symbol.Variable("high_feature_1")
-# high_feature_2 <- mx.symbol.Variable("high_feature_2")
-# label <- mx.symbol.Variable('label')
-# Dis_loss <- verification_loss(person_1 = high_feature_1, person_2 = high_feature_2, label = label, m = 1)
-
-#mx.symbol.infer.shape(high_feature_2, Train_img.array2= c(256, 256, 3, 1))$out.shapes

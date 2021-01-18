@@ -1,5 +1,5 @@
 source('~/Face/code/Iterator.R')
-source('~/Face/code/Model Architecture (func).R')
+source('~/Face/code/Model Architecture.R')
 source('~/Face/code/Loss Function.R')
 source('~/Face/code/Optimizer.R')
 
@@ -16,13 +16,13 @@ batch_size <- tail(input_dim[[1]], 1)
 # Ouput shape
 
 my_values <- my_iter$value()
-ouput_dim = mx.symbol.infer.shape(feature_symbol_1, data1 = c(256, 256, 3, 32))$out.shapes
+ouput_dim = mx.symbol.infer.shape(feature_symbol_1, data1 = c(img_size, img_size, 3, batch_size))$out.shapes
 
 get_output_dim <- function(input_dim, loss_name){
   
   # output shape decide by input shape
   
-  ouput_dim = mx.symbol.infer.shape(feature_symbol_1, data1 = c(256, 256, 3, 32))$out.shapes
+  ouput_dim = mx.symbol.infer.shape(feature_symbol_1, data1 = c(img_size, img_size, 3, batch_size))$out.shapes
   
   output_shape <- list()
   for (i in 1:length(loss_name)){
@@ -43,13 +43,13 @@ ouput_dim <- get_output_dim(input_dim = input_dim, loss_name = loss_name)
 # Feature Extracter Executor
 
 exec_list <- list(symbol = feature_symbol_1, fixed.param = NULL, ctx = mx.gpu(1), grad.req = "write")
-exec_list <- append(exec_list, list(data1 = c(256, 256, 3, 32)))
+exec_list <- append(exec_list, list(data1 = c(img_size, img_size, 3, batch_size)))
 my_executor <- do.call(mx.simple.bind, exec_list)
 
 # Loss Executor
 
 loss_exec_list <- list(symbol = dis_loss, ctx = mx.gpu(1), grad.req = "write")
-loss_exec_list <- append(loss_exec_list, list(person_1 = c(1, 1, 512, 32), person_2 = c(1, 1, 512, 32), label = c(32)))
+loss_exec_list <- append(loss_exec_list, list(person_1 = c(1, 1, 512, batch_size), person_2 = c(1, 1, 512, batch_size), label = batch_size))
 #loss_exec_list <- append(loss_exec_list, ouput_dim)
 loss_executor <- do.call(mx.simple.bind, loss_exec_list)
 
@@ -59,7 +59,7 @@ my_arg <- list()
 my_arg$arg.params <- list()
 my_arg$aux.params <- list()
 
-init_list <- list(symbol = feature_symbol_1, ctx = mx.gpu(1), input.shape = list(data1 = c(256, 256, 3, 32)), output.shape = NULL)
+init_list <- list(symbol = feature_symbol_1, ctx = mx.gpu(1), input.shape = list(data1 = c(img_size, img_size, 3, batch_size)), output.shape = NULL)
 init_list <- append(init_list, list(initializer = mxnet:::mx.init.uniform(0.01)))
 my_arg <- do.call(mx.model.init.params, init_list)
 
@@ -74,10 +74,11 @@ my_updater <- mx.opt.get.updater(optimizer = my_optimizer, weights = my_executor
 
 # Forward/Backward
 
-#epoch <- 17
+epoch <- 1
 end_epoch <- 20
+loss_report <- matrix(data = NA, nrow = end_epoch, ncol = 1)
 
-for (epoch in 18:end_epoch) {
+for (epoch in 1:end_epoch) {
   
   # Training
   
@@ -176,13 +177,14 @@ for (epoch in 18:end_epoch) {
   }
   
   message(paste0("Epoch [", epoch, "] Train-loss = ", formatC(mean(unlist(batch_loss)), format = "f", 4)))
+  loss_report[epoch, 1] <- paste0("Epoch [", epoch, "] Train-loss = ", formatC(mean(unlist(batch_loss)), format = "f", 4))
   
   #Get model
   
-  my_model <- mxnet:::mx.model.extract.model(symbol = feature_symbol_1, train.execs = list(my_executor))
+  #my_model <- mxnet:::mx.model.extract.model(symbol = feature_symbol_1, train.execs = list(my_executor))
   #my_model[['arg.params']] <- append(my_model[['arg.params']], my_arg[['arg.params']][fixed_params])
-  my_model[['arg.params']] <- my_model[['arg.params']][!names(my_model[['arg.params']]) %in% "data1"]
-  mx.model.save(model = my_model, prefix = paste0('train model/banch size 32/train v', epoch), iteration = epoch)
+  #my_model[['arg.params']] <- my_model[['arg.params']][!names(my_model[['arg.params']]) %in% "data1"]
+  #mx.model.save(model = my_model, prefix = paste0('train model/banch size 32/train v', epoch), iteration = epoch)
   
   #return(my_model)
   

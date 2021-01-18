@@ -5,11 +5,13 @@ library(jpeg)
 
 # Load data
 
-load('data/train_list.RData')
+img_size <- 256
+
+load(paste0('data/train_list_', img_size, '.RData'))
 
 Train_Y.array <- array(NA, dim = c(1, 1, 1, 2200))
 
-#奇數同人，偶數不同人
+#奇數同人label 0，偶數不同人 label 1
 for (i in 1:1100) {
   Train_Y.array[,,,2*i-1] <- rep(0)
   Train_Y.array[,,,2*i] <- rep(1)
@@ -46,8 +48,8 @@ my_iterator_core <- function (batch_size) {
     idx.1 <- ids.1[idx]
     idx.2 <- ids.2[idx]
     
-    Train_img.array1 <- array(0, dim = c(256, 256, 3, batch_size))
-    Train_img.array2 <- array(0, dim = c(256, 256, 3, batch_size))
+    Train_img.array1 <- array(0, dim = c(img_size, img_size, 3, batch_size))
+    Train_img.array2 <- array(0, dim = c(img_size, img_size, 3, batch_size))
     
     for (i in 1:batch_size) {
       
