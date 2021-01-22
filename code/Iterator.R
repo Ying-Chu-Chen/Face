@@ -9,7 +9,7 @@ img_size <- 256
 
 load(paste0('data/train_list_', img_size, '.RData'))
 
-Train_Y.array <- array(NA, dim = c(1, 1, 1, 2200))
+Train_Y.array <- array(NA, dim = c(1, 1, 1, nrow(train.data)))
 
 #奇數同人label 0，偶數不同人 label 1
 for (i in 1:1100) {
