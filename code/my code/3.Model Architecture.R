@@ -1,176 +1,56 @@
 
-# Load resnet-18
-
-Pre_Trained_model <- mx.model.load('~/model/mobilev2', 0)
-
-# Get the internal output
-
-res_symbol <- Pre_Trained_model$symbol
-
-res_all_layer <- res_symbol$get.internals()
-
-basic_out <- which(res_all_layer$outputs == 'conv6_3_linear_bn_output') %>% res_all_layer$get.output()
-
-high_feature <- mx.symbol.Convolution(data = basic_out, no_bias = TRUE, name = 'high_feature',
-                                     kernel = c(2, 2), stride = c(1, 1), num_filter = 512)
-
-
-mx.symbol.infer.shape(basic_out, data = c(64, 64, 3, 32))$out.shapes
-mx.symbol.infer.shape(high_feature, data = c(64, 64, 3, 32))$out.shapes
 
 feature_symbol <- function() {
   
-  # 224×224
-  
   data <- mx.symbol.Variable(name = 'data')
-  bn_data <- mx.symbol.BatchNorm(data = data, eps = "2e-05", name = 'bn_data')
   
-  # 112×112
+  dis_conv1 <- mx.symbol.Convolution(data = data, kernel = c(3, 3), num_filter = 24, no.bias = TRUE, name = 'dis_conv1')
+  dis_bn1 <- mx.symbol.BatchNorm(data = dis_conv1, fix_gamma = FALSE, name = 'dis_bn1')
+  dis_relu1 <- mx.symbol.LeakyReLU(data = dis_bn1, act_type = "leaky", slope = 0.2, name = "dis_relu1")
+  dis_pool1 <- mx.symbol.Pooling(data = dis_relu1, pool_type = "avg", kernel = c(2, 2), stride = c(2, 2), name = 'dis_pool1')
   
-  conv0 <- mx.symbol.Convolution(data = bn_data, no_bias = TRUE, name = 'conv0',
-                                 kernel = c(7, 7), pad = c(3, 3), stride = c(2, 2), num_filter = 64)
-  bn0 <- mx.symbol.BatchNorm(data = conv0, fix_gamma = FALSE, eps = "2e-05", name = 'bn0')
-  relu0 <- mx.symbol.Activation(data = bn0, act_type = "relu", name = 'relu0')
+  dis_conv2 <- mx.symbol.Convolution(data = dis_pool1, kernel = c(3, 3), stride = c(2, 2), num_filter = 32, no.bias = TRUE, name = 'dis_conv2')
+  dis_bn2 <- mx.symbol.BatchNorm(data = dis_conv2, fix_gamma = TRUE, name = 'dis_bn2')
+  dis_relu2 <- mx.symbol.LeakyReLU(data = dis_bn2, act_type = "leaky", slope = 0.2, name = "dis_relu2")
+  dis_pool2 <- mx.symbol.Pooling(data = dis_relu2, pool_type = "avg", kernel = c(2, 2), stride = c(2, 2), name = 'dis_pool2')
   
-  # 56×56
+  dis_conv3 <- mx.symbol.Convolution(data = dis_pool2, kernel = c(3, 3), num_filter = 64, no.bias = TRUE, name = 'dis_conv3')
+  dis_bn3 <- mx.symbol.BatchNorm(data = dis_conv3, fix_gamma = FALSE, name = 'dis_bn3')
+  dis_relu3 <- mx.symbol.LeakyReLU(data = dis_bn3, act_type = "leaky", slope = 0.2, name = "dis_relu3")
   
-  # stage1_unit1
+  dis_conv4 <- mx.symbol.Convolution(data = dis_relu3, kernel = c(4, 4), num_filter = 64, no.bias = TRUE, name = 'dis_conv4')
+  dis_bn4 <- mx.symbol.BatchNorm(data = dis_conv4, fix_gamma = FALSE, name = 'dis_bn4')
+  dis_relu4 <- mx.symbol.LeakyReLU(data = dis_bn4, act_type = "leaky", slope = 0.2, name = "dis_relu4")
   
-  pooling0 <- mx.symbol.Pooling(data = relu0, pool_type = "max", name = 'pooling0',
-                                kernel = c(3, 3), pad = c(1, 1), stride = c(2, 2))
-  stage1_unit1_bn1 <- mx.symbol.BatchNorm(data = pooling0, fix_gamma = FALSE, eps = "2e-05", name = 'stage1_unit1_bn1')
-  stage1_unit1_relu1 <- mx.symbol.Activation(data = stage1_unit1_bn1, act_type = "relu", name = 'stage1_unit1_relu1')
-  stage1_unit1_conv1 <- mx.symbol.Convolution(data = stage1_unit1_relu1, no_bias = TRUE, name = 'stage1_unit1_conv1',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 64)
-  stage1_unit1_bn2 <- mx.symbol.BatchNorm(data = stage1_unit1_conv1, fix_gamma = FALSE, eps = "2e-05", name = 'stage1_unit1_bn2')
-  stage1_unit1_relu2 <- mx.symbol.Activation(data = stage1_unit1_bn2, act_type = "relu", name = 'stage1_unit1_relu2')
-  stage1_unit1_conv2 <- mx.symbol.Convolution(data = stage1_unit1_relu2, no_bias = TRUE, name = 'stage1_unit1_conv2',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 64)
+  high_feature <- mx.symbol.Convolution(data = dis_relu4, kernel = c(2, 2), num_filter = 128, name = 'high_feature')
   
-  stage1_unit1_sc <- mx.symbol.Convolution(data = stage1_unit1_relu1, no_bias = TRUE, name = 'stage1_unit1_sc',
-                                           kernel = c(1, 1), pad = c(0, 0), stride = c(1, 1), num_filter = 64)
-  
-  elemwise_add_plus0 <- mx.symbol.broadcast_plus(lhs = stage1_unit1_conv2, rhs = stage1_unit1_sc, name = 'elemwise_add_plus0')
-  
-  # stage1_unit2
-  
-  stage1_unit2_bn1 <- mx.symbol.BatchNorm(data = elemwise_add_plus0, fix_gamma = FALSE, eps = "2e-05", name = 'stage1_unit2_bn1')
-  stage1_unit2_relu1 <- mx.symbol.Activation(data = stage1_unit2_bn1, act_type = "relu", name = 'stage1_unit2_relu1')
-  stage1_unit2_conv1 <- mx.symbol.Convolution(data = stage1_unit2_relu1, no_bias = TRUE, name = 'stage1_unit2_conv1',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 64)
-  stage1_unit2_bn2 <- mx.symbol.BatchNorm(data = stage1_unit2_conv1, fix_gamma = FALSE, eps = "2e-05", name = 'stage1_unit2_bn2')
-  stage1_unit2_relu2 <- mx.symbol.Activation(data = stage1_unit2_bn2, act_type = "relu", name = 'stage1_unit2_relu2')
-  stage1_unit2_conv2 <- mx.symbol.Convolution(data = stage1_unit2_relu2, no_bias = TRUE, name = 'stage1_unit2_conv2',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 64)
-  
-  elemwise_add_plus1 <- mx.symbol.broadcast_plus(lhs = stage1_unit2_conv2, rhs = elemwise_add_plus0, name = 'elemwise_add_plus1')
-  
-  # 28×28
-  
-  # stage2_unit1
-  
-  stage2_unit1_bn1 <- mx.symbol.BatchNorm(data = elemwise_add_plus1, fix_gamma = FALSE, eps = "2e-05", name = 'stage2_unit1_bn1')
-  stage2_unit1_relu1 <- mx.symbol.Activation(data = stage2_unit1_bn1, act_type = "relu", name = 'stage2_unit1_relu1')
-  stage2_unit1_conv1 <- mx.symbol.Convolution(data = stage2_unit1_relu1, no_bias = TRUE, name = 'stage2_unit1_conv1',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(2, 2), num_filter = 128)
-  stage2_unit1_bn2 <- mx.symbol.BatchNorm(data = stage2_unit1_conv1, fix_gamma = FALSE, eps = "2e-05", name = 'stage2_unit1_bn2')
-  stage2_unit1_relu2 <- mx.symbol.Activation(data = stage2_unit1_bn2, act_type = "relu", name = 'stage2_unit1_relu2')
-  stage2_unit1_conv2 <- mx.symbol.Convolution(data = stage2_unit1_relu2, no_bias = TRUE, name = 'stage2_unit1_conv2',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 128)
-  
-  stage2_unit1_sc <- mx.symbol.Convolution(data = stage2_unit1_relu1, no_bias = TRUE, name = 'stage2_unit1_sc',
-                                           kernel = c(1, 1), pad = c(0, 0), stride = c(2, 2), num_filter = 128)
-  
-  elemwise_add_plus2 <- mx.symbol.broadcast_plus(lhs = stage2_unit1_conv2, rhs = stage2_unit1_sc, name = 'elemwise_add_plus2')
-  
-  # stage2_unit2
-  
-  stage2_unit2_bn1 <- mx.symbol.BatchNorm(data = elemwise_add_plus2, fix_gamma = FALSE, eps = "2e-05", name = 'stage2_unit2_bn1')
-  stage2_unit2_relu1 <- mx.symbol.Activation(data = stage2_unit2_bn1, act_type = "relu", name = 'stage2_unit2_relu1')
-  stage2_unit2_conv1 <- mx.symbol.Convolution(data = stage2_unit2_relu1, no_bias = TRUE, name = 'stage2_unit2_conv1',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 128)
-  stage2_unit2_bn2 <- mx.symbol.BatchNorm(data = stage2_unit2_conv1, fix_gamma = FALSE, eps = "2e-05", name = 'stage2_unit2_bn2')
-  stage2_unit2_relu2 <- mx.symbol.Activation(data = stage2_unit2_bn2, act_type = "relu", name = 'stage2_unit2_relu2')
-  stage2_unit2_conv2 <- mx.symbol.Convolution(data = stage2_unit2_relu2, no_bias = TRUE, name = 'stage2_unit2_conv2',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 128)
-  
-  elemwise_add_plus3 <- mx.symbol.broadcast_plus(lhs = stage2_unit2_conv2, rhs = elemwise_add_plus2, name = 'elemwise_add_plus3')
-  
-  # 14×14
-  
-  # stage3_unit1
-  
-  stage3_unit1_bn1 <- mx.symbol.BatchNorm(data = elemwise_add_plus3, fix_gamma = FALSE, eps = "2e-05", name = 'stage3_unit1_bn1')
-  stage3_unit1_relu1 <- mx.symbol.Activation(data = stage3_unit1_bn1, act_type = "relu", name = 'stage3_unit1_relu1')
-  stage3_unit1_conv1 <- mx.symbol.Convolution(data = stage3_unit1_relu1, no_bias = TRUE, name = 'stage3_unit1_conv1',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(2, 2), num_filter = 256)
-  stage3_unit1_bn2 <- mx.symbol.BatchNorm(data = stage3_unit1_conv1, fix_gamma = FALSE, eps = "2e-05", name = 'stage3_unit1_bn2')
-  stage3_unit1_relu2 <- mx.symbol.Activation(data = stage3_unit1_bn2, act_type = "relu", name = 'stage3_unit1_relu2')
-  stage3_unit1_conv2 <- mx.symbol.Convolution(data = stage3_unit1_relu2, no_bias = TRUE, name = 'stage3_unit1_conv2',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 256)
-  
-  stage3_unit1_sc <- mx.symbol.Convolution(data = stage3_unit1_relu1, no_bias = TRUE, name = 'stage3_unit1_sc',
-                                           kernel = c(1, 1), pad = c(0, 0), stride = c(2, 2), num_filter = 256)
-  
-  elemwise_add_plus4 <- mx.symbol.broadcast_plus(lhs = stage3_unit1_conv2, rhs = stage3_unit1_sc, name = 'elemwise_add_plus4')
-  
-  # stage3_unit2
-  
-  stage3_unit2_bn1 <- mx.symbol.BatchNorm(data = elemwise_add_plus4, fix_gamma = FALSE, eps = "2e-05", name = 'stage3_unit2_bn1')
-  stage3_unit2_relu1 <- mx.symbol.Activation(data = stage3_unit2_bn1, act_type = "relu", name = 'stage3_unit2_relu1')
-  stage3_unit2_conv1 <- mx.symbol.Convolution(data = stage3_unit2_relu1, no_bias = TRUE, name = 'stage3_unit2_conv1',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 256)
-  stage3_unit2_bn2 <- mx.symbol.BatchNorm(data = stage3_unit2_conv1, fix_gamma = FALSE, eps = "2e-05", name = 'stage3_unit2_bn2')
-  stage3_unit2_relu2 <- mx.symbol.Activation(data = stage3_unit2_bn2, act_type = "relu", name = 'stage3_unit2_relu2')
-  stage3_unit2_conv2 <- mx.symbol.Convolution(data = stage3_unit2_relu2, no_bias = TRUE, name = 'stage3_unit2_conv2',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 256)
-  
-  elemwise_add_plus5 <- mx.symbol.broadcast_plus(lhs = stage3_unit2_conv2, rhs = elemwise_add_plus4, name = 'elemwise_add_plus5')
-  
-  # 7×7
-  
-  # stage4_unit1
-  
-  stage4_unit1_bn1 <- mx.symbol.BatchNorm(data = elemwise_add_plus5, fix_gamma = FALSE, eps = "2e-05", name = 'stage4_unit1_bn1')
-  stage4_unit1_relu1 <- mx.symbol.Activation(data = stage4_unit1_bn1, act_type = "relu", name = 'stage4_unit1_relu1')
-  stage4_unit1_conv1 <- mx.symbol.Convolution(data = stage4_unit1_relu1, no_bias = TRUE, name = 'stage4_unit1_conv1',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(2, 2), num_filter = 512)
-  stage4_unit1_bn2 <- mx.symbol.BatchNorm(data = stage4_unit1_conv1, fix_gamma = FALSE, eps = "2e-05", name = 'stage4_unit1_bn2')
-  stage4_unit1_relu2 <- mx.symbol.Activation(data = stage4_unit1_bn2, act_type = "relu", name = 'stage4_unit1_relu2')
-  stage4_unit1_conv2 <- mx.symbol.Convolution(data = stage4_unit1_relu2, no_bias = TRUE, name = 'stage4_unit1_conv2',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 512)
-  
-  stage4_unit1_sc <- mx.symbol.Convolution(data = stage4_unit1_relu1, no_bias = TRUE, name = 'stage4_unit1_sc',
-                                           kernel = c(1, 1), pad = c(0, 0), stride = c(2, 2), num_filter = 512)
-  
-  elemwise_add_plus6 <- mx.symbol.broadcast_plus(lhs = stage4_unit1_conv2, rhs = stage4_unit1_sc, name = 'elemwise_add_plus6')
-  
-  # stage4_unit2
-  
-  stage4_unit2_bn1 <- mx.symbol.BatchNorm(data = elemwise_add_plus6, fix_gamma = FALSE, eps = "2e-05", name = 'stage4_unit2_bn1')
-  stage4_unit2_relu1 <- mx.symbol.Activation(data = stage4_unit2_bn1, act_type = "relu", name = 'stage4_unit2_relu1')
-  stage4_unit2_conv1 <- mx.symbol.Convolution(data = stage4_unit2_relu1, no_bias = TRUE, name = 'stage4_unit2_conv1',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 512)
-  stage4_unit2_bn2 <- mx.symbol.BatchNorm(data = stage4_unit2_conv1, fix_gamma = FALSE, eps = "2e-05", name = 'stage4_unit2_bn2')
-  stage4_unit2_relu2 <- mx.symbol.Activation(data = stage4_unit2_bn2, act_type = "relu", name = 'stage4_unit2_relu2')
-  stage4_unit2_conv2 <- mx.symbol.Convolution(data = stage4_unit2_relu2, no_bias = TRUE, name = 'stage4_unit2_conv2',
-                                              kernel = c(3, 3), pad = c(1, 1), stride = c(1, 1), num_filter = 512)
-  
-  elemwise_add_plus7 <- mx.symbol.broadcast_plus(lhs = stage4_unit2_conv2, rhs = elemwise_add_plus6, name = 'elemwise_add_plus7')
-  
-  # Final
-  
-  bn1 <- mx.symbol.BatchNorm(data = elemwise_add_plus7, fix_gamma = FALSE, eps = "2e-05", name = 'bn1')
-  relu1 <- mx.symbol.Activation(data = bn1, act_type = "relu", name = 'relu1')
-  # pool1 <- mx.symbol.Pooling(data = relu1, pool_type = "avg", name = 'pool1',
-  #                            kernel = c(7, 7), pad = c(0, 0), stride = c(7, 7))
-
-  #high_feature <<- mx.symbol.Flatten(data = pool1, name = 'high_feature')
-  
-  high_feature <- mx.symbol.Convolution(data = relu1, no_bias = TRUE, name = 'high_feature',
-                                          kernel = c(7, 7), stride = c(1, 1), num_filter = 512)
+  # high_feature <- mx.symbol.Convolution(data = relu1, no_bias = TRUE, name = 'high_feature',
+  #                                         kernel = c(7, 7), stride = c(1, 1), num_filter = 512)
 
   return(high_feature)
 }
 
-mx.symbol.infer.shape(feature_symbol(), data = c(img_size, img_size, 3, batch_size))$out.shapes
+data <- mx.symbol.Variable(name = 'data')
+
+dis_conv1 <- mx.symbol.Convolution(data = data, kernel = c(3, 3), num_filter = 24, no.bias = TRUE, name = 'dis_conv1')
+dis_bn1 <- mx.symbol.BatchNorm(data = dis_conv1, fix_gamma = FALSE, name = 'dis_bn1')
+dis_relu1 <- mx.symbol.LeakyReLU(data = dis_bn1, act_type = "leaky", slope = 0.2, name = "dis_relu1")
+dis_pool1 <- mx.symbol.Pooling(data = dis_relu1, pool_type = "avg", kernel = c(2, 2), stride = c(2, 2), name = 'dis_pool1')
+
+dis_conv2 <- mx.symbol.Convolution(data = dis_pool1, kernel = c(3, 3), stride = c(2, 2), num_filter = 32, no.bias = TRUE, name = 'dis_conv2')
+dis_bn2 <- mx.symbol.BatchNorm(data = dis_conv2, fix_gamma = TRUE, name = 'dis_bn2')
+dis_relu2 <- mx.symbol.LeakyReLU(data = dis_bn2, act_type = "leaky", slope = 0.2, name = "dis_relu2")
+dis_pool2 <- mx.symbol.Pooling(data = dis_relu2, pool_type = "avg", kernel = c(2, 2), stride = c(2, 2), name = 'dis_pool2')
+
+dis_conv3 <- mx.symbol.Convolution(data = dis_pool2, kernel = c(3, 3), num_filter = 64, no.bias = TRUE, name = 'dis_conv3')
+dis_bn3 <- mx.symbol.BatchNorm(data = dis_conv3, fix_gamma = FALSE, name = 'dis_bn3')
+dis_relu3 <- mx.symbol.LeakyReLU(data = dis_bn3, act_type = "leaky", slope = 0.2, name = "dis_relu3")
+
+dis_conv4 <- mx.symbol.Convolution(data = dis_relu3, kernel = c(4, 4), num_filter = 64, no.bias = TRUE, name = 'dis_conv4')
+dis_bn4 <- mx.symbol.BatchNorm(data = dis_conv4, fix_gamma = FALSE, name = 'dis_bn4')
+dis_relu4 <- mx.symbol.LeakyReLU(data = dis_bn4, act_type = "leaky", slope = 0.2, name = "dis_relu4")
+
+high_feature <- mx.symbol.Convolution(data = dis_relu4, kernel = c(2, 2), num_filter = 128, name = 'high_feature')
+
+
+mx.symbol.infer.shape(high_feature, data = c(64, 64, 3, batch_size))$out.shapes

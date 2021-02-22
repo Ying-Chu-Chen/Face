@@ -10,7 +10,7 @@ train_pair <- read.csv('data/csv/pairsDevTrain_old.csv', header = TRUE)
 
 # Read image
 
-img_size <- 224
+img_size <- 64
 
 train_img.array1 <- array(0, dim = c(img_size, img_size, 3, nrow(train_pair)))
 train_img.array2 <- array(0, dim = c(img_size, img_size, 3, nrow(train_pair)))
@@ -58,7 +58,7 @@ for (i in 1:nrow(train_pair)) {
 
 #check image
 
-i=1101
+i=1100
 
 imageShow(train_img.array1[,,,i])
 imageShow(train_img.array2[,,,i])
@@ -71,12 +71,12 @@ for (i in 1:nrow(train_pair)) {
 }
 
 # train data label
-# 同人label 0，不同人 label 1
+# 同人label 1，不同人 label 0
 
 train_Y.array <- array(NA, dim = c(1, 1, 1, nrow(train_pair)))
 
-train_Y.array[,,,1:(nrow(train_pair)/2)] <- rep(0)
-train_Y.array[,,,(nrow(train_pair)/2+1):nrow(train_pair)] <- rep(1)
+train_Y.array[,,,1:(nrow(train_pair)/2)] <- rep(1)
+train_Y.array[,,,(nrow(train_pair)/2+1):nrow(train_pair)] <- rep(0)
 
 # separate train data and validation data
 
@@ -93,7 +93,7 @@ Valid_Y.array = train_Y.array[,,,-train.seq]
 
 #check image
 
-i=88
+i=95
 Valid_Y.array[i]
 imageShow(Valid_img.array1[,,,i])
 imageShow(Valid_img.array2[,,,i])
@@ -141,6 +141,14 @@ for (i in 1:200) {
 }
 
 close(pb)
+
+# check image
+i=7
+Valid_Y.array[i]
+imageShow(valid_list[[1]][[i]])
+imageShow(valid_list[[2]][[i]])
+
+names(valid_list) <- c('person_1', 'person_2')
 
 # save data
 
@@ -224,25 +232,3 @@ for (i in 1:nrow(test_data)) {
 test_list <- list()
 test_list[[1]] <- list()
 test_list[[2]] <- list()
-
-#奇數同人label 0，偶數不同人label 1
-
-pb <- txtProgressBar(max = nrow(test_data)/2, style = 3)
-
-for (i in 1:(nrow(test_data)/2)) {
-  
-  test_list[[1]][[2*i-1]] <- Test_img.array1[,,,i]
-  test_list[[1]][[2*i]] <- Test_img.array1[,,,nrow(test_data)/2+i]
-  test_list[[2]][[2*i-1]] <- Test_img.array2[,,,i]
-  test_list[[2]][[2*i]] <- Test_img.array2[,,,nrow(test_data)/2+i]
-  
-  setTxtProgressBar(pb, i)
-}
-
-close(pb)
-
-#imageShow(test_list[[1]][[501]])
-
-names(test_list) <- c('person_1', 'person_2')
-
-save(test_list, file = paste0('data/test_list_', img_size, '.RData'))

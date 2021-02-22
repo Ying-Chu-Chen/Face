@@ -40,39 +40,38 @@ get_output_dim <- function(input_dim, loss_name){
 
 ouput_dim <- get_output_dim(input_dim = input_dim, loss_name = loss_name)
 
-mx.set.seed(0)
-my_arg <- mxnet:::mx.model.init.params(symbol = feature_symbol_1, 
-                                        input.shape = list(data = c(img_size, img_size, 3, batch_size)), 
-                                        output.shape = NULL, 
-                                        initializer = mxnet:::mx.init.Xavier(rnd_type = "uniform", magnitude = 2.24), 
-                                        ctx = ctx)
 
-for (i in 1:length(my_arg$arg.params)) {
-  pos <- which(names(Pre_Trained_model$arg.params) == names(my_arg$arg.params)[i])
-  if (all.equal(dim(Pre_Trained_model$arg.params[[pos]]), dim(my_arg$arg.params[[i]])) == TRUE) {
-    my_arg$arg.params[[i]] <- Pre_Trained_model$arg.params[[pos]]
-  }
-}
-
-Fixed_NAMES = names(Pre_Trained_model$arg.params)[names(Pre_Trained_model$arg.params) %in% names(mx.symbol.infer.shape(high_feature, data = c(img_size, img_size, 3, batch_size))$arg.shapes)]
-
-ctx = mx.gpu(0)
+ctx = mx.gpu(1)
 fixed_params = NULL
 
 # Feature Extracter Executor
 
-exec_list <- list(symbol = feature_symbol_1, fixed.param = fixed_params, ctx = ctx, grad.req = "write")
-exec_list <- append(exec_list, list(data = c(img_size, img_size, 3, batch_size)))
-my_executor <- do.call(mx.simple.bind, exec_list)
+# exec_list <- list(symbol = feature_symbol_1, fixed.param = fixed_params, ctx = ctx, grad.req = "write")
+# exec_list <- append(exec_list, list(data = c(img_size, img_size, 3, batch_size)))
+# my_executor <- do.call(mx.simple.bind, exec_list)
+
+my_executor <- mx.simple.bind(symbol = feature_symbol_1,
+                              data = c(img_size, img_size, 3, batch_size),
+                              ctx = ctx, grad.req = "write")
 
 # Loss Executor
 
-loss_exec_list <- list(symbol = dis_loss, ctx = ctx, grad.req = "write")
-loss_exec_list <- append(loss_exec_list, list(person_1 = c(1, 1, 512, batch_size), person_2 = c(1, 1, 512, batch_size), label = batch_size))
-#loss_exec_list <- append(loss_exec_list, ouput_dim)
-loss_executor <- do.call(mx.simple.bind, loss_exec_list)
+# loss_exec_list <- list(symbol = dis_loss, ctx = ctx, grad.req = "write")
+# loss_exec_list <- append(loss_exec_list, list(person_1 = c(1, 1, 128, batch_size), person_2 = c(1, 1, 128, batch_size), label = batch_size))
+# loss_exec_list <- append(loss_exec_list, ouput_dim)
+# loss_executor <- do.call(mx.simple.bind, loss_exec_list)
+
+loss_executor <- mx.simple.bind(symbol = dis_loss,
+                                person_1 = c(1, 1, 128, batch_size), person_2 = c(1, 1, 128, batch_size), label = batch_size,
+                                ctx = ctx, grad.req = "write")
 
 # Set Initial parameters 
+
+# Initial params
+
+my_arg <- list()
+my_arg$arg.params <- list()
+my_arg$aux.params <- list()
 
 init_list <- list(symbol = feature_symbol_1, ctx = ctx, input.shape = list(data = c(img_size, img_size, 3, batch_size)), output.shape = NULL)
 init_list <- append(init_list, list(initializer = mxnet:::mx.init.Xavier(rnd_type = "uniform", magnitude = 2.24)))
@@ -90,8 +89,9 @@ my_updater <- mx.opt.get.updater(optimizer = my_optimizer, weights = my_executor
 # Forward/Backward
 
 epoch = 1
-end_epoch <- 3
+end_epoch <- 20
 loss_report <- matrix(data = NA, nrow = end_epoch, ncol = 1)
+result_list <- list()
 
 for (epoch in 1:end_epoch) {
   
@@ -166,14 +166,15 @@ for (epoch in 1:end_epoch) {
     
     sum_grad <- list()
     
-    for (k in 1:length(grad_array_1)){
+    for (k in 2:length(grad_array_1)){
       # sum_grad[[k]] <- grad_array_1[[k]] + grad_array_2[[k]]
       sum_grad[[k]] <- as.array(grad_array_1[[k]]) + as.array(grad_array_2[[k]])
       sum_grad[[k]] <- mx.nd.array(sum_grad[[k]], ctx = ctx)
       names(sum_grad)[k] <- names(grad_array_1[k])
     }
     
-    # sum_grad <- sum_grad[-which(names(sum_grad) == 'data')]
+    names(sum_grad)[1] <- names(grad_array_1[1])
+    #sum_grad <- sum_grad[-which(names(sum_grad) == 'data')]
     
     update_args <- my_updater(weight = my_executor$arg.arrays, grad = sum_grad)
     #update_args <- my_updater(weight = my_executor$ref.arg.arrays, grad = sum_grad)
@@ -195,13 +196,38 @@ for (epoch in 1:end_epoch) {
   message(paste0("Epoch [", epoch, "] Train-loss = ", formatC(mean(unlist(batch_loss)), format = "f", 4)))
   loss_report[epoch, 1] <- paste0("Epoch [", epoch, "] Train-loss = ", formatC(mean(unlist(batch_loss)), format = "f", 4))
   
-  #Get model
+  # Get model
   
   my_model <- mxnet:::mx.model.extract.model(symbol = feature_symbol_1, train.execs = list(my_executor))
   my_model[['arg.params']] <- append(my_model[['arg.params']], my_arg[['arg.params']][fixed_params])
   my_model[['arg.params']] <- my_model[['arg.params']][!names(my_model[['arg.params']]) %in% "data"]
   mx.model.save(model = my_model, prefix = paste0('train model/train v', epoch), iteration = epoch)
 
-  return(my_model)
+  # Validate
+  
+  dis_model = mx.model.load(paste0("train model/train v", epoch), epoch)
+  dis_sym = mx.symbol.load(paste0("train model/train v", epoch, "-symbol.json"))
+  
+  predict_list <<- dis_predict(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, dis_sym = dis_sym, img_size = 64, ctx = mx.gpu(1), batch_size = 50)
+  roc_list <<- roc_evalu(response = Valid_Y.array,predictor = predict_list$batch_dis_record)
+  
+  #record validation result
+  
+  result_list[[paste0("v", epoch)]][["dis_record"]] <- predict_list$batch_dis_record
+  result_list[[paste0("v", epoch)]][["label"]] <- predict_list$LABEL
+  result_list[[paste0("v", epoch)]][["roc_record"]] <- roc_list$roc_result
+  result_list[[paste0("v", epoch)]][["loss_report"]] <- loss_report[epoch, 1]
   
 }
+
+#save result
+
+save(result_list, file ='train model/result_list.RData')
+
+
+# training set roc
+dis_model = mx.model.load(paste0("train model/train v", epoch), epoch)
+dis_sym = mx.symbol.load(paste0("train model/train v", epoch, "-symbol.json"))
+
+train_list <<- dis_predict(indata = train_list, LABEL = Train_Y.array, dis_model = dis_model, dis_sym = dis_sym, img_size = 64, ctx = mx.gpu(1), batch_size = 50)
+train_roc_list <<- roc_evalu(response = Train_Y.array,predictor = train_list$batch_dis_record)
