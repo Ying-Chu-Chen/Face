@@ -10,7 +10,7 @@ train_pair <- read.csv('data/csv/pairsDevTrain_old.csv', header = TRUE)
 
 # Read image
 
-img_size <- 64
+img_size <- 72
 
 train_img.array1 <- array(0, dim = c(img_size, img_size, 3, nrow(train_pair)))
 train_img.array2 <- array(0, dim = c(img_size, img_size, 3, nrow(train_pair)))
@@ -79,9 +79,20 @@ train_Y.array[,,,1:(nrow(train_pair)/2)] <- rep(1)
 train_Y.array[,,,(nrow(train_pair)/2+1):nrow(train_pair)] <- rep(0)
 
 # separate train data and validation data
+# 同人label 1 奇數，不同人 label 0 偶數
 
-set.seed(0)
-train.seq = sample(1:nrow(train_pair), 2000)
+set.seed(1234)
+train.seq_pos = sample(1:(nrow(train_pair)/2), 1000)
+train.seq_neg = sample(1101:nrow(train_pair), 1000)
+
+train.seq <- 0
+
+for (i in 1:1000) {
+  
+  train.seq[i*2-1] = train.seq_pos[i]
+  train.seq[i*2] = train.seq_neg[i]
+  
+}
 
 Train_img.array1 = train_img.array1[,,,train.seq]
 Train_img.array2 = train_img.array2[,,,train.seq]
@@ -92,8 +103,9 @@ Valid_img.array2 = train_img.array2[,,,-train.seq]
 Valid_Y.array = train_Y.array[,,,-train.seq]
 
 #check image
+# 同人label 1，不同人 label 0
 
-i=95
+i=122
 Valid_Y.array[i]
 imageShow(Valid_img.array1[,,,i])
 imageShow(Valid_img.array2[,,,i])
@@ -130,9 +142,9 @@ valid_list <- list()
 valid_list[[1]] <- list()
 valid_list[[2]] <- list()
 
-pb <- txtProgressBar(max = 200, style = 3)
+pb <- txtProgressBar(max = length(Valid_Y.array), style = 3)
 
-for (i in 1:200) {
+for (i in 1:length(Valid_Y.array)) {
   
   valid_list[[1]][[i]] <- Valid_img.array1[,,,i]
   valid_list[[2]][[i]] <- Valid_img.array2[,,,i]
@@ -143,7 +155,7 @@ for (i in 1:200) {
 close(pb)
 
 # check image
-i=7
+i=200
 Valid_Y.array[i]
 imageShow(valid_list[[1]][[i]])
 imageShow(valid_list[[2]][[i]])

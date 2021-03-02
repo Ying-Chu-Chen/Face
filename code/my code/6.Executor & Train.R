@@ -13,16 +13,15 @@ train_data <- my_iter$value()
 input_dim <- sapply(train_data, dim)
 batch_size <- tail(input_dim[[1]], 1)
 
-# Ouput shape
-
+# Output shape
 my_values <- my_iter$value()
-ouput_dim = mx.symbol.infer.shape(feature_symbol_1, data = c(img_size, img_size, 3, batch_size))$out.shapes
+ouput_dim = mx.symbol.infer.shape(feature_symbol_1, data = c(crop_img_size, crop_img_size, 3, batch_size))$out.shapes
 
 get_output_dim <- function(input_dim, loss_name){
   
   # output shape decide by input shape
   
-  ouput_dim = mx.symbol.infer.shape(feature_symbol_1, data = c(img_size, img_size, 3, batch_size))$out.shapes
+  ouput_dim = mx.symbol.infer.shape(feature_symbol_1, data = c(crop_img_size, crop_img_size, 3, batch_size))$out.shapes
   
   output_shape <- list()
   for (i in 1:length(loss_name)){
@@ -47,11 +46,11 @@ fixed_params = NULL
 # Feature Extracter Executor
 
 # exec_list <- list(symbol = feature_symbol_1, fixed.param = fixed_params, ctx = ctx, grad.req = "write")
-# exec_list <- append(exec_list, list(data = c(img_size, img_size, 3, batch_size)))
+# exec_list <- append(exec_list, list(data = c(crop_img_size, crop_img_size, 3, batch_size)))
 # my_executor <- do.call(mx.simple.bind, exec_list)
 
 my_executor <- mx.simple.bind(symbol = feature_symbol_1,
-                              data = c(img_size, img_size, 3, batch_size),
+                              data = c(crop_img_size, crop_img_size, 3, batch_size),
                               ctx = ctx, grad.req = "write")
 
 # Loss Executor
@@ -73,7 +72,7 @@ my_arg <- list()
 my_arg$arg.params <- list()
 my_arg$aux.params <- list()
 
-init_list <- list(symbol = feature_symbol_1, ctx = ctx, input.shape = list(data = c(img_size, img_size, 3, batch_size)), output.shape = NULL)
+init_list <- list(symbol = feature_symbol_1, ctx = ctx, input.shape = list(data = c(crop_img_size, crop_img_size, 3, batch_size)), output.shape = NULL)
 init_list <- append(init_list, list(initializer = mxnet:::mx.init.Xavier(rnd_type = "uniform", magnitude = 2.24)))
 my_arg <- do.call(mx.model.init.params, init_list)
 
@@ -208,7 +207,7 @@ for (epoch in 1:end_epoch) {
   dis_model = mx.model.load(paste0("train model/train v", epoch), epoch)
   dis_sym = mx.symbol.load(paste0("train model/train v", epoch, "-symbol.json"))
   
-  predict_list <<- dis_predict(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, dis_sym = dis_sym, img_size = 64, ctx = mx.gpu(1), batch_size = 50)
+  predict_list <<- valid_dis_predict(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, dis_sym = dis_sym, crop_img_size = 64, img_size = 72, ctx = mx.gpu(1), batch_size = 50)
   roc_list <<- roc_evalu(response = Valid_Y.array,predictor = predict_list$batch_dis_record)
   
   #record validation result
@@ -229,5 +228,5 @@ save(result_list, file ='train model/result_list.RData')
 dis_model = mx.model.load(paste0("train model/train v", epoch), epoch)
 dis_sym = mx.symbol.load(paste0("train model/train v", epoch, "-symbol.json"))
 
-train_list <<- dis_predict(indata = train_list, LABEL = Train_Y.array, dis_model = dis_model, dis_sym = dis_sym, img_size = 64, ctx = mx.gpu(1), batch_size = 50)
+train_list <<- train_dis_predict(indata = train_list, LABEL = Train_Y.array, dis_model = dis_model, dis_sym = dis_sym, img_size = 64, ctx = mx.gpu(1), batch_size = 50)
 train_roc_list <<- roc_evalu(response = Train_Y.array,predictor = train_list$batch_dis_record)
