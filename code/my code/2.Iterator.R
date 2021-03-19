@@ -2,6 +2,7 @@ library(magrittr)
 library(imager)
 library(OpenImageR)
 library(jpeg)
+library(pROC)
 
 # Load data
 
@@ -70,7 +71,8 @@ my_iterator_core <- function (batch_size) {
     Train_img.array1 <- mx.nd.array(Train_img.array1)
     Train_img.array2 <- mx.nd.array(Train_img.array2)
     
-    label = mx.nd.array(Train_Y.array[idx])
+    Train_Y.array <- array(data = Train_Y.array[idx], dim = c(1, 1, 1, 32))
+    label = mx.nd.array(Train_Y.array)
     
     return(list(Train_img.array1 = Train_img.array1, Train_img.array2 = Train_img.array2, label = label))
     
@@ -113,7 +115,8 @@ my_iter$iter.next()
 
 # Predict function
 
-valid_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, dis_sym = dis_sym, crop_img_size = 64, img_size = 72, ctx = mx.gpu(1), batch_size = 50) {
+crop_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, 
+                        dis_sym = dis_sym, crop_img_size = 64, img_size = 72, ctx = mx.gpu(1), batch_size = 50) {
   
   #2. build a dis exec
   dis_layers <- dis_model$symbol$get.internals()
@@ -122,7 +125,7 @@ valid_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_mo
   dis_pred_exc <- do.call(mx.simple.bind, arg_lst)
   
   mx.exec.update.arg.arrays(dis_pred_exc, dis_model$arg.params, match.name = TRUE)
-  mx.exec.update.aux.arrays(dis_pred_exc, dis_model$aux_params, match.name = TRUE)
+  mx.exec.update.aux.arrays(dis_pred_exc, dis_model$aux.params, match.name = TRUE)
   
   #3. predict function
   
@@ -132,18 +135,11 @@ valid_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_mo
   X1 <- array(data = NA, dim = c(img_size, img_size, 3, total_len*batch_size))
   X2 <- array(data = NA, dim = c(img_size, img_size, 3, total_len*batch_size))
   
-  batch_dis_record <- array(data = NA, dim = 200)
+  batch_dis_record <- array(data = NA, dim = total_sample_n)
 
   sub_X1_list <- list()
   sub_X2_list <- list()
   batch_dis <- list()
-  
-  for (z in 1:5) {
-    
-    sub_X1_list[[z]] <- list()
-    sub_X2_list[[z]] <- list()
-    
-  }
 
   for (k in 1:total_len) {
     
@@ -152,36 +148,38 @@ valid_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_mo
     
     for (j in idx[1]:idx[batch_size]) {
       
-      X1[,,,j] <- valid_list[[1]][[j]]
-      X2[,,,j] <- valid_list[[2]][[j]]
-      
-      sub_X1_list[[1]] = X1[1:64,1:64,,idx] #lefttop
-      sub_X1_list[[2]] = X1[9:72,1:64,,idx] #righttop
-      sub_X1_list[[3]] = X1[1:64,9:72,,idx] #leftbottom
-      sub_X1_list[[4]] = X1[9:72,9:72,,idx] #rightbottom
-      sub_X1_list[[5]] = X1[5:68,5:68,,idx] #center
-      
-      sub_X2_list[[1]] = X2[1:64,1:64,,idx] #lefttop
-      sub_X2_list[[2]] = X2[9:72,1:64,,idx] #righttop
-      sub_X2_list[[3]] = X2[1:64,9:72,,idx] #leftbottom
-      sub_X2_list[[4]] = X2[9:72,9:72,,idx] #rightbottom
-      sub_X2_list[[5]] = X2[5:68,5:68,,idx] #center
+      X1[,,,j] <- indata[[1]][[j]]
+      X2[,,,j] <- indata[[2]][[j]]
       
     }
     
+    sub_X1_list[[1]] = X1[1:64,1:64,,idx] #lefttop
+    sub_X1_list[[2]] = X1[9:72,1:64,,idx] #righttop
+    sub_X1_list[[3]] = X1[1:64,9:72,,idx] #leftbottom
+    sub_X1_list[[4]] = X1[9:72,9:72,,idx] #rightbottom
+    sub_X1_list[[5]] = X1[5:68,5:68,,idx] #center
+    
+    sub_X2_list[[1]] = X2[1:64,1:64,,idx] #lefttop
+    sub_X2_list[[2]] = X2[9:72,1:64,,idx] #righttop
+    sub_X2_list[[3]] = X2[1:64,9:72,,idx] #leftbottom
+    sub_X2_list[[4]] = X2[9:72,9:72,,idx] #rightbottom
+    sub_X2_list[[5]] = X2[5:68,5:68,,idx] #center
+    
     for (m in 1:5) {
       
-      batch_SEQ_ARRAY_1 <- array(sub_X1_list[[m]], dim = c(dim(sub_X1_list[[m]])))
-      mx.exec.update.arg.arrays(dis_pred_exc, arg.arrays = list(data = mx.nd.array(batch_SEQ_ARRAY_1, ctx = ctx)), match.name = TRUE)
-      mx.exec.forward(dis_pred_exc, is.train = FALSE)
-      X1_batch_predict_out <- dis_pred_exc$outputs[[1]]
+      #aaa <<- dis_pred_exc
       
-      batch_SEQ_ARRAY_2 <- array(sub_X2_list[[m]], dim = c(dim(sub_X2_list[[m]])))
-      mx.exec.update.arg.arrays(dis_pred_exc, arg.arrays = list(data = mx.nd.array(batch_SEQ_ARRAY_2, ctx = ctx)), match.name = TRUE)
+      batch_SEQ_ARRAY_1 <- array(sub_X1_list[[m]], dim = c(crop_img_size, crop_img_size, 3, batch_size))
+      mx.exec.update.arg.arrays(dis_pred_exc, arg.arrays = list(data = mx.nd.array(batch_SEQ_ARRAY_1)), match.name = TRUE)
       mx.exec.forward(dis_pred_exc, is.train = FALSE)
-      X2_batch_predict_out <- dis_pred_exc$outputs[[1]]
+      X1_batch_predict_out <- as.array(dis_pred_exc$ref.outputs[[1]])
       
-      batch_dis[[m]] <- as.array(X1_batch_predict_out - X2_batch_predict_out)^2 %>% colSums(., dims = 3) %>% sqrt(.)
+      batch_SEQ_ARRAY_2 <- array(sub_X2_list[[m]], dim = c(crop_img_size, crop_img_size, 3, batch_size))
+      mx.exec.update.arg.arrays(dis_pred_exc, arg.arrays = list(data = mx.nd.array(batch_SEQ_ARRAY_2)), match.name = TRUE)
+      mx.exec.forward(dis_pred_exc, is.train = FALSE)
+      X2_batch_predict_out <- as.array(dis_pred_exc$ref.outputs[[1]])
+      
+      batch_dis[[m]] <- (X1_batch_predict_out - X2_batch_predict_out)^2 %>% colSums(., dims = 3) %>% sqrt(.)
       
     }
     
@@ -201,7 +199,8 @@ roc_evalu <- function(response = Valid_Y.array,predictor = predict_list$batch_di
   
 }
 
-train_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, dis_sym = dis_sym, img_size = 64, ctx = mx.gpu(1), batch_size = 50) {
+dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, 
+                        dis_sym = dis_sym, img_size = 72, ctx = mx.gpu(1), batch_size = 50) {
   
   #2. build a dis exec
   dis_layers <- dis_model$symbol$get.internals()
@@ -210,8 +209,8 @@ train_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_mo
   dis_pred_exc <- do.call(mx.simple.bind, arg_lst)
   
   mx.exec.update.arg.arrays(dis_pred_exc, dis_model$arg.params, match.name = TRUE)
-  mx.exec.update.aux.arrays(dis_pred_exc, dis_model$aux_params, match.name = TRUE)
-  
+  mx.exec.update.aux.arrays(dis_pred_exc, dis_model$aux.params, match.name = TRUE)
+
   #3. predict
   
   total_sample_n <- length(indata[[1]])
@@ -231,17 +230,17 @@ train_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_mo
       X1[,,,j] <- indata[[1]][[j]]
       X2[,,,j] <- indata[[2]][[j]]
     }
-    
+
     batch_SEQ_ARRAY_1 <- array(X1[,,,idx], dim = c(dim(X1)[1:3], batch_size))
     mx.exec.update.arg.arrays(dis_pred_exc, arg.arrays = list(data = mx.nd.array(batch_SEQ_ARRAY_1, ctx = ctx)), match.name = TRUE)
     mx.exec.forward(dis_pred_exc, is.train = FALSE)
-    X1_batch_predict_out <- dis_pred_exc$outputs[[1]]
+    X1_batch_predict_out <<- dis_pred_exc$outputs[[1]]
     #X1_batch_predict_out <- as.array(X1_batch_predict_out)
     
     batch_SEQ_ARRAY_2 <- array(X2[,,,idx], dim = c(dim(X2)[1:3], batch_size))
     mx.exec.update.arg.arrays(dis_pred_exc, arg.arrays = list(data = mx.nd.array(batch_SEQ_ARRAY_2, ctx = mx.gpu(1))), match.name = TRUE)
     mx.exec.forward(dis_pred_exc, is.train = FALSE)
-    X2_batch_predict_out <- dis_pred_exc$outputs[[1]]
+    X2_batch_predict_out <<- dis_pred_exc$outputs[[1]]
     #X2_batch_predict_out <- as.array(X2_batch_predict_out)
     
     # dis

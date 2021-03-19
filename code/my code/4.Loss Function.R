@@ -6,7 +6,7 @@ verification_loss_2 <- function (person_1, person_2, label, m = 1) {
   
   verif.fi_fj <- mx.symbol.broadcast_minus(lhs = person_1, rhs = person_2, name = "verif.fi_fj")
   verif.square_fi_fj <- mx.symbol.square(data = verif.fi_fj, name = "verif.square_fi_fj")
-  verif.sum_square <- mx.symbol.sum(data = verif.square_fi_fj, axis = 1, keepdims = TRUE, name = "verif.sum_square")       
+  verif.sum_square <- mx.symbol.sum(data = verif.square_fi_fj, axis = c(3,2,1), keepdims = TRUE, name = "verif.sum_square")       
   verif.distance <- mx.symbol.sqrt(data = verif.sum_square, name = "verif.distance")
   
   # Same identities
@@ -26,7 +26,7 @@ verification_loss_2 <- function (person_1, person_2, label, m = 1) {
   #Sum & mean
   
   verif.sum_loss <- verif.loss_sameid.half + verif.loss_differentid.half
-  verif.mean_loss <- mx.symbol.mean(data = verif.sum_loss, axis = 0, keepdims = FALSE,name = 'verif.mean_loss')
+  verif.mean_loss <- mx.symbol.mean(data = verif.sum_loss, axis = c(2,1,0), keepdims = FALSE,name = 'verif.mean_loss')
   
   verification_loss <- mx.symbol.MakeLoss(data = verif.mean_loss, name = "verification_loss")
   
@@ -73,7 +73,7 @@ verification_loss <- function (person_1, person_2, label,
 
 #################
 
-feature_symbol_1 <- high_feature
+feature_symbol_1 <- featrue_out
 
 loss_name <- list(person_1_name = 'person_1', person_2_name = 'person_2', label_name = 'label')
 
@@ -81,8 +81,10 @@ person_1 <- mx.symbol.Variable(loss_name$person_1_name)
 person_2 <- mx.symbol.Variable(loss_name$person_2_name)
 label <- mx.symbol.Variable(loss_name$label_name)
 
-dis_loss <- verification_loss(person_1 = person_1, person_2 = person_2, label = label, pos_lambda = 2, m_para = 2.5, lambda = 1)
+#dis_loss <- verification_loss(person_1 = person_1, person_2 = person_2, label = label, pos_lambda = 2, m_para = 2.5, lambda = 1)
+dis_loss <- verification_loss_2(person_1 = person_1, person_2 = person_2, label = label)
 
+mx.symbol.infer.shape(dis_loss, person_1 = c(2,2,320,32), person_2 = c(2,2,320,32), label = c(1,1,1,32))$out.shapes
 #return(list(dis_loss = dis_loss, loss_name = loss_name))
 
 ###################

@@ -50,7 +50,20 @@ dis_conv4 <- mx.symbol.Convolution(data = dis_relu3, kernel = c(4, 4), num_filte
 dis_bn4 <- mx.symbol.BatchNorm(data = dis_conv4, fix_gamma = FALSE, name = 'dis_bn4')
 dis_relu4 <- mx.symbol.LeakyReLU(data = dis_bn4, act_type = "leaky", slope = 0.2, name = "dis_relu4")
 
-high_feature <- mx.symbol.Convolution(data = dis_relu4, kernel = c(2, 2), num_filter = 128, name = 'high_feature')
+high_feature <- mx.symbol.Convolution(data = dis_relu4, kernel = c(1, 1), num_filter = 128, name = 'high_feature')
 
 
-mx.symbol.infer.shape(high_feature, data = c(64, 64, 3, batch_size))$out.shapes
+# Load MobileNet v2
+
+pre_trained_model <- mx.model.load('~/model/mobilev2', 0)
+
+# Get the internal output
+
+mobile_symbol <- pre_trained_model$symbol
+mobile_all_layer <- mobile_symbol$get.internals()
+tail(mobile_all_layer$outputs, 30)
+
+basic_out <- which(mobile_all_layer$outputs == 'conv6_3_linear_bn_output') %>% mobile_all_layer$get.output()
+featrue_out <- mx.symbol.Convolution(data = basic_out, kernel = c(1, 1), num_filter = 320, name = 'high_feature')
+
+mx.symbol.infer.shape(featrue_out, data = c(64, 64, 3, batch_size))$out.shapes

@@ -65,10 +65,10 @@ imageShow(train_img.array2[,,,i])
 
 # data normalization
 
-for (i in 1:nrow(train_pair)) {
-  train_img.array1[,,,i] = (train_img.array1[,,,i] - mean(train_img.array1[,,,i]))/sd(train_img.array1[,,,i])
-  train_img.array2[,,,i] = (train_img.array2[,,,i] - mean(train_img.array2[,,,i]))/sd(train_img.array2[,,,i])
-}
+# for (i in 1:nrow(train_pair)) {
+#   train_img.array1[,,,i] = (train_img.array1[,,,i] - mean(train_img.array1[,,,i]))/sd(train_img.array1[,,,i])
+#   train_img.array2[,,,i] = (train_img.array2[,,,i] - mean(train_img.array2[,,,i]))/sd(train_img.array2[,,,i])
+# }
 
 # train data label
 # 同人label 1，不同人 label 0

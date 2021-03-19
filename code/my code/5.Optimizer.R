@@ -1,6 +1,6 @@
 # Optimizer
 
-my_optimizer <- mx.opt.create(name = "adam", learning.rate = 1e-4, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-08, wd = 1e-4, rescale.grad = 1)
+my_optimizer <- mx.opt.create(name = "adam", learning.rate = 0.0001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-08, wd = 0.001, rescale.grad = 1)
 
 # my_optimizer <- mx.opt.create(name = "adam", learning.rate = 2e-4, beta1 = 0.5, beta2 = 0.999, epsilon = 1e-08, wd = 0)
 
