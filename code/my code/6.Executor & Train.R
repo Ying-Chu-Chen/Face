@@ -97,8 +97,8 @@ if(transfer) {
   
 }
 
-ctx = mx.gpu(0)
-fixed.param = NULL #Fixed_NAMES
+ctx = mx.gpu(1)
+fixed.param = NULL  #Fixed_NAMES
 
 # Feature  Executor
 
@@ -134,11 +134,11 @@ my_updater <- mx.opt.get.updater(optimizer = my_optimizer, weights = my_executor
 # Forward/Backward
 
 epoch = 1
-end_epoch <- 20
+end_epoch <- 100
 loss_report <- matrix(data = NA, nrow = end_epoch, ncol = 1)
 result_list <- list()
 
-for (epoch in 13:end_epoch) {
+for (epoch in 1:end_epoch) {
   
   # Training
   
@@ -258,7 +258,7 @@ for (epoch in 13:end_epoch) {
   predict_list <- crop_dis_predict(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, 
                                    dis_sym = dis_sym, crop_img_size = 64, img_size = 72, ctx = mx.gpu(1), batch_size = 50)
   
-  roc_list <- roc_evalu(response =  predict_list$LABEL, predictor = predict_list$batch_dis_record)
+  roc_list <- roc_evalu(response = Valid_Y.array[1,1,1,], predictor = predict_list$batch_dis_record)
   
   #record validation result
   
@@ -282,4 +282,12 @@ dis_sym = mx.symbol.load(paste0("train model/train v", epoch, "-symbol.json"))
 train_list <- crop_dis_predict(indata = train_list, LABEL = Train_Y.array, dis_model = dis_model, 
                                 dis_sym = dis_sym, crop_img_size = 64, img_size = 72, ctx = mx.gpu(1), batch_size = 50)
 
-train_roc_list <- roc_evalu(response = train_list$LABEL, predictor = train_list$batch_dis_record)
+train_roc_list <- roc_evalu(response = train_list$LABEL[,,,1:length(Train_Y.array)], predictor = train_list$batch_dis_record)
+
+# ROC cut point
+
+ROC1 = roc(predict_list$LABEL[,,,1:length(Valid_Y.array)], predict_list$batch_dis_record)
+plot(ROC1, col = "red")
+pos = which.max(ROC1$sensitivities + ROC1$specificities)
+cutpoint = ROC1$thresholds[pos]
+

@@ -192,7 +192,7 @@ crop_dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_mod
   
 }
 
-roc_evalu <- function(response = Valid_Y.array,predictor = predict_list$batch_dis_record) {
+roc_evalu <- function(response = Valid_Y.array, predictor = predict_list$batch_dis_record) {
   
   roc_result <- roc(response = response, predictor = predictor)
   return(list(roc_result = roc_result))
@@ -219,7 +219,7 @@ dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_model = 
   X1 <- array(data = NA, dim = c(img_size, img_size, 3, total_len*batch_size))
   X2 <- array(data = NA, dim = c(img_size, img_size, 3, total_len*batch_size))
   
-  batch_dis_record <- array(data = NA, dim = 200)
+  batch_dis_record <- array(data = NA, dim = total_sample_n)
   
   for (k in 1:total_len) {
     

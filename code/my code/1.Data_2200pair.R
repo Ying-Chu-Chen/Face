@@ -71,15 +71,15 @@ imageShow(train_img.array2[,,,i])
 # }
 
 # train data label
-# 同人label 1，不同人 label 0
+# 同人label 0，不同人 label 1
 
 train_Y.array <- array(NA, dim = c(1, 1, 1, nrow(train_pair)))
 
-train_Y.array[,,,1:(nrow(train_pair)/2)] <- rep(1)
-train_Y.array[,,,(nrow(train_pair)/2+1):nrow(train_pair)] <- rep(0)
+train_Y.array[,,,1:(nrow(train_pair)/2)] <- rep(0)
+train_Y.array[,,,(nrow(train_pair)/2+1):nrow(train_pair)] <- rep(1)
 
 # separate train data and validation data
-# 同人label 1 奇數，不同人 label 0 偶數
+# 同人label 0 奇數，不同人 label 1 偶數
 
 set.seed(1234)
 train.seq_pos = sample(1:(nrow(train_pair)/2), 1000)
@@ -103,9 +103,9 @@ Valid_img.array2 = train_img.array2[,,,-train.seq]
 Valid_Y.array = train_Y.array[,,,-train.seq]
 
 #check image
-# 同人label 1，不同人 label 0
+# 同人label 0，不同人 label 1
 
-i=122
+i=13
 Valid_Y.array[i]
 imageShow(Valid_img.array1[,,,i])
 imageShow(Valid_img.array2[,,,i])

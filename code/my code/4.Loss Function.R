@@ -87,24 +87,6 @@ dis_loss <- verification_loss_2(person_1 = person_1, person_2 = person_2, label 
 mx.symbol.infer.shape(dis_loss, person_1 = c(2,2,320,32), person_2 = c(2,2,320,32), label = c(1,1,1,32))$out.shapes
 #return(list(dis_loss = dis_loss, loss_name = loss_name))
 
-###################
-
-# f = DeepID2 vector, label = target class, weight = softmax layer parameters 
-
-# Ident <- function (f, label, weight, eps = 1e-8) {
-#   
-#   label1 <- mx.symbol.broadcast_mul(lhs = mx.symbol.log(data = f + eps), rhs = label, name = 'label1')
-#   label2 <- mx.symbol.broadcast_mul(lhs = mx.symbol.log(data = 1 - f + eps), rhs = 1 - label, name = 'label2')
-#   
-#   average1 <- mx.symbol.mean(data = label1, axis = 0, keepdims = FALSE, name = 'average1')
-#   average2 <- mx.symbol.mean(data = label2, axis = 0, keepdims = FALSE, name = 'average2')
-#   
-#   loss <- (0 - average1 - average2) 
-#   CE_loss <- mx.symbol.MakeLoss(data = loss, name = 'CE_loss')
-#   
-#   return(CE_loss)
-# }
-
 ###########################
 
 #check
