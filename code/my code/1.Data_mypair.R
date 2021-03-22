@@ -29,6 +29,9 @@ for (i in 1:length(row_3up)) {
   
   if(length(choose2[1,]) <= 20) {
     
+    random_col <- sample(ncol(choose2), 20, replace = TRUE)
+    choose2 <- choose2[,random_col]
+    
     for (j in 1:length(choose2[1,])) {
       
       img <- readJPEG(paste0('data/lfw-deepfunneled/', ifwnames[row_3up[i],1], "/", file_names[choose2[1,j]]))
@@ -68,7 +71,7 @@ for (i in 1:length(row_3up)) {
 
 close(pb)
 
-i = 484
+i = 10033
 imageShow(train_pos_pair[[1]][[i]])
 imageShow(train_pos_pair[[2]][[i]])
 
@@ -105,7 +108,7 @@ for (i in 1:length(train_pos_pair[[1]])) {
 
 close(pb)
 
-i = 999
+i = 3939
 imageShow(train_neg_pair[[1]][[i]])
 imageShow(train_neg_pair[[2]][[i]])
 
@@ -132,7 +135,7 @@ for (i in 1:length(train_pos_pair[[1]])) {
 }
 
 
-i=9061
+i=11111
 imageShow(train_list[[1]][[i]])
 imageShow(train_list[[2]][[i]])
 Train_Y.array[,,,i]

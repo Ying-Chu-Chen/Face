@@ -6,7 +6,7 @@ source('~/Face/code/my code/5.Optimizer.R')
 
 # Executor & Train
 
-verbose_n <- 10
+verbose_n <- 20
 
 #Input shape
 
@@ -134,8 +134,8 @@ my_updater <- mx.opt.get.updater(optimizer = my_optimizer, weights = my_executor
 # Forward/Backward
 
 epoch = 1
-end_epoch <- 100
-loss_report <- matrix(data = NA, nrow = end_epoch, ncol = 1)
+end_epoch <- 60
+loss_report <- matrix(data = loss_report, nrow = end_epoch, ncol = 1)
 result_list <- list()
 
 for (epoch in 1:end_epoch) {

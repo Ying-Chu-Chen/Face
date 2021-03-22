@@ -6,7 +6,14 @@ library(pROC)
 library(imager)
 library(jpeg)
 
-# Predict function
+img_size = 72
+load(paste0('data/valid_list_', img_size, '.RData'))
+load(paste0('data/valid_Y_', img_size, '.RData'))
+
+epoch=68
+dis_model <- mx.model.load(paste0("train model/train v", epoch), epoch)
+dis_sym = mx.symbol.load(paste0("train model/train v", epoch, "-symbol.json"))
+
 
 # Predict function
 
@@ -148,25 +155,21 @@ dis_predict <- function(indata = valid_list, LABEL = Valid_Y.array, dis_model = 
   
 }
 
-img_size = 72
-load(paste0('data/valid_list_', img_size, '.RData'))
-load(paste0('data/valid_Y_', img_size, '.RData'))
-
-epoch=48
-dis_model <- mx.model.load(paste0("train model/train v", epoch), epoch)
-dis_sym = mx.symbol.load(paste0("train model/train v", epoch, "-symbol.json"))
+# Predict
 
 predict_list <- crop_dis_predict(indata = valid_list, LABEL = Valid_Y.array, dis_model = dis_model, 
                                  dis_sym = dis_sym, crop_img_size = 64, img_size = 72, ctx = mx.gpu(1), batch_size = 50)
 
 roc_list <- roc_evalu(response = Valid_Y.array[1,1,1,], predictor = predict_list$batch_dis_record)
 
+
+
 # ROC cut point
 
 ROC1 = roc(Valid_Y.array[1,1,1,], predict_list$batch_dis_record)
 plot(ROC1, col = "red")
 pos = which.max(ROC1$sensitivities + ROC1$specificities)
-cutpoint = ROC1$thresholds[pos]
+cutpoint = ROC1$thresholds[pos] #0.6707954
 
 # plot(ROC1, col = "red")
 # points(ROC1$specificities[pos], ROC1$sensitivities[pos], pch = 19, cex = 1)
@@ -182,9 +185,13 @@ cutpoint = ROC1$thresholds[pos]
 
 lin <- readJPEG("data/example image/lin/1.JPG")
 lin <- resizeImage(lin, img_size, img_size, method = 'bilinear')
+lin_2 <- readJPEG("data/example image/lin/2.JPG")
+lin_2 <- resizeImage(lin_2, img_size, img_size, method = 'bilinear')
 
 chen <- readJPEG("data/example image/chen/1.jpg")
+chen_2 <- readJPEG("data/example image/chen/2.jpg")
 chen <- resizeImage(chen, img_size, img_size, method = 'bilinear')
+chen_2 <- resizeImage(chen_2, img_size, img_size, method = 'bilinear')
 
 huang <- readJPEG("data/example image/huang/1.jpg")
 huang <- resizeImage(huang, img_size, img_size, method = 'bilinear')
@@ -192,7 +199,7 @@ huang <- resizeImage(huang, img_size, img_size, method = 'bilinear')
 
 # app predict function
 
-app_predict <- function(indata_1 = chen, indata_2 = huang, img_size = 64, epoch = 48, 
+app_predict <- function(indata_1 = chen, indata_2 = huang, img_size = 64, epoch = 68, 
                         dis_cutpoint = cutpoint, ctx = mx.gpu(1), indata_1_name = "chen") {
   
   dis_model = mx.model.load(paste0("train model/train v", epoch), epoch)
@@ -231,6 +238,73 @@ app_predict <- function(indata_1 = chen, indata_2 = huang, img_size = 64, epoch 
   
 }
 
-outcome <- app_predict(indata_1 = lin ,indata_2 = chen, img_size = 64, epoch = 48, 
-                       dis_cutpoint = cutpoint, ctx = mx.gpu(1), indata_1_name = "lin")
+app_crop_predict <- function(indata_1 = chen, indata_2 = huang, img_size = 72, crop_img_size = 64,
+                             epoch = 68, dis_cutpoint = cutpoint, ctx = mx.gpu(1), indata_1_name = "chen", 
+                             batch_size = 1) {
   
+  dis_model = mx.model.load(paste0("train model/train v", epoch), epoch)
+  dis_sym = mx.symbol.load(paste0("train model/train v", epoch, "-symbol.json"))
+  
+  #2. build a dis exec
+  dis_layers <- dis_model$symbol$get.internals()
+  dis_model_symbol <- which(dis_layers$outputs == 'high_feature_output') %>% dis_layers$get.output()
+  arg_lst <- list(symbol = dis_model_symbol, ctx = ctx, grad.req = 'null', data = c(crop_img_size, crop_img_size, 3, batch_size))
+  dis_pred_exc <- do.call(mx.simple.bind, arg_lst)
+  
+  mx.exec.update.arg.arrays(dis_pred_exc, dis_model$arg.params, match.name = TRUE)
+  mx.exec.update.aux.arrays(dis_pred_exc, dis_model$aux.params, match.name = TRUE)
+  
+  #3. predict
+  
+  X1 <- array(data = indata_1, dim = c(img_size, img_size, 3, batch_size))
+  X2 <- array(data = indata_2, dim = c(img_size, img_size, 3, batch_size))
+  
+  batch_dis <- list()
+  sub_X1_list <- list()
+  sub_X2_list <- list()
+  
+  sub_X1_list[[1]] = X1[1:64,1:64,,1] #lefttop
+  sub_X1_list[[2]] = X1[9:72,1:64,,1] #righttop
+  sub_X1_list[[3]] = X1[1:64,9:72,,1] #leftbottom
+  sub_X1_list[[4]] = X1[9:72,9:72,,1] #rightbottom
+  sub_X1_list[[5]] = X1[5:68,5:68,,1] #center
+  
+  sub_X2_list[[1]] = X2[1:64,1:64,,1] #lefttop
+  sub_X2_list[[2]] = X2[9:72,1:64,,1] #righttop
+  sub_X2_list[[3]] = X2[1:64,9:72,,1] #leftbottom
+  sub_X2_list[[4]] = X2[9:72,9:72,,1] #rightbottom
+  sub_X2_list[[5]] = X2[5:68,5:68,,1] #center
+  
+  for (m in 1:5) {
+    
+    batch_SEQ_ARRAY_1 <- array(sub_X1_list[[m]], dim = c(crop_img_size, crop_img_size, 3, batch_size))
+    mx.exec.update.arg.arrays(dis_pred_exc, arg.arrays = list(data = mx.nd.array(batch_SEQ_ARRAY_1)), match.name = TRUE)
+    mx.exec.forward(dis_pred_exc, is.train = FALSE)
+    X1_batch_predict_out <- as.array(dis_pred_exc$ref.outputs[[1]])
+    
+    batch_SEQ_ARRAY_2 <- array(sub_X2_list[[m]], dim = c(crop_img_size, crop_img_size, 3, batch_size))
+    mx.exec.update.arg.arrays(dis_pred_exc, arg.arrays = list(data = mx.nd.array(batch_SEQ_ARRAY_2)), match.name = TRUE)
+    mx.exec.forward(dis_pred_exc, is.train = FALSE)
+    X2_batch_predict_out <- as.array(dis_pred_exc$ref.outputs[[1]])
+    
+    batch_dis[[m]] <- (X1_batch_predict_out - X2_batch_predict_out)^2 %>% colSums(., dims = 3) %>% sqrt(.)
+    
+  }
+  
+  batch_dis_mean <- (batch_dis[[1]] + batch_dis[[2]] + batch_dis[[3]] + batch_dis[[4]] + batch_dis[[5]]) / 5
+  
+  
+  if(batch_dis_mean > cutpoint) {
+    message(paste0("indata_1 與 indata_2 距離", round(batch_dis_mean, 4), " ,兩者不同人"))
+  } else {
+    message(paste0("indata_1 與 indata_2 距離", round(batch_dis_mean, 4), " ,都是" , indata_1_name))
+  }
+  
+}
+
+outcome <- app_crop_predict(indata_1 = lin, indata_2 = huang, img_size = 72, crop_img_size = 64,
+                            epoch = 60, dis_cutpoint = cutpoint, ctx = mx.gpu(1), indata_1_name = "lin", 
+                            batch_size = 1)
+
+
+ 
